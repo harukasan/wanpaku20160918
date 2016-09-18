@@ -159,6 +159,9 @@ module Isuda
       db.xquery('TRUNCATE star')
       redis.flushall()
 
+      total_entries = db.xquery(%| SELECT count(*) AS total_entries FROM entry |).first[:total_entries].to_i
+      dalli.set("total_entries", total_entries)
+
       content_type :json
       JSON.generate(result: 'ok')
     end
@@ -169,9 +172,6 @@ module Isuda
           UPDATE `keyword` SET `escaped` = ? WHERE `name` = ?
         |, Regexp.escape(keyword[:name]), keyword[:name])
       end
-
-      total_entries = db.xquery(%| SELECT count(*) AS total_entries FROM entry |).first[:total_entries].to_i
-      dalli.set("total_entries", total_entries)
 
       content_type :json
       JSON.generate(result: 'ok')
@@ -261,7 +261,6 @@ module Isuda
       halt(400) if is_spam_content(keyword + '\n' + description)
 
       bound = [@user_id, keyword, description] * 2
-      db.query("begin");
       db.xquery(%|
         INSERT INTO entry (author_id, keyword, description, created_at, updated_at)
         VALUES (?, ?, ?, NOW(), NOW())
@@ -272,8 +271,9 @@ module Isuda
       db.xquery(%|
         INSERT IGNORE INTO `keyword` (`name`, `prefix`, `escaped`) VALUES (?, ?, ?)
       |, keyword, keyword[0, 2], Regexp.escape(keyword))
-      dalli.incr("total_entries")
-      db.query("commit")
+
+      total_entries = db.xquery(%| SELECT count(*) AS total_entries FROM entry |).first[:total_entries].to_i
+      dalli.set("total_entries", total_entries)
 
       redirect_found '/'
     end
