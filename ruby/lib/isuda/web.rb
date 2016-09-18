@@ -114,7 +114,7 @@ module Isuda
       def prefixes
         result = redis.get('prefixes')
         if result
-          result.split('$$')
+          result = result.split('$$')
         else
           result = db.xquery('select distinct prefix from keyword').to_a
           redis.set('prefixes', result.join('$$'))
