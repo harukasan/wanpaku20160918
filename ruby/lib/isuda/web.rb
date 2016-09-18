@@ -274,7 +274,7 @@ module Isuda
       |, *bound)
 
       db.xquery(%|
-        INSERT IGNORE INTO keyword (name, prefix, escaped) VALUES (?, ?, ?)
+        INSERT IGNORE INTO `keyword` (`name`, `prefix`, `escaped`) VALUES (?, ?, ?)
       |, keyword, keyword[0, 2], Regexp.escape(keyword))
 
       redirect_found '/'
