@@ -119,14 +119,13 @@ module Isuda
       def load_stars_by_entries(entries)
         stars = {}
 
-        keywords = entries.map(&:keyword).uniq
+        keywords = entries.map { |e| e[:keyword] }.uniq
         keywords.each do |keyword|
           stars[keyword] = []
         end
 
-        load_stars(keywords).each do |star|
-          keyword = star[:keyword]
-          stars[keyword] << star
+	db.xquery(%| select user_name, keyword from star where keyword IN (?) |, keywords).each do |star|
+          stars[star[:keyword]] << star[:user_name]
         end
         stars
       end
@@ -160,7 +159,7 @@ module Isuda
       stars = load_stars_by_entries(entries)
       entries.each do |entry|
         entry[:html] = htmlify(entry[:description])
-        entry[:stars] = stars[entry[:keyword]]
+        entry[:stars] = stars[entry[:keyword]] || []
       end
 
       total_entries = db.xquery(%| SELECT count(*) AS total_entries FROM entry |).first[:total_entries].to_i
