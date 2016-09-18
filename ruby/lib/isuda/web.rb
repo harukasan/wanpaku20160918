@@ -32,13 +32,9 @@ module Isuda
 
     set(:set_name) do |value|
       condition {
-        user_id = session[:user_id]
-        if user_id
-          user = db.xquery(%| select name from user where id = ? |, user_id).first
-          @user_id = user_id
-          @user_name = user[:name]
-          halt(403) unless @user_name
-        end
+        @user_id ||= session[:user_id]
+        @user_name ||= session[:user_name]
+        halt(403) unless @user_name
       }
     end
 
@@ -175,6 +171,7 @@ module Isuda
 
       user_id = register(name, pw)
       session[:user_id] = user_id
+      session[:user_name] = name
 
       redirect_found '/'
     end
@@ -193,12 +190,14 @@ module Isuda
       halt(403) unless user[:password] == encode_with_salt(password: params[:password], salt: user[:salt])
 
       session[:user_id] = user[:id]
+      session[:user_name] = name
 
       redirect_found '/'
     end
 
     get '/logout' do
       session[:user_id] = nil
+      session[:user_name] = nil
       redirect_found '/'
     end
 
