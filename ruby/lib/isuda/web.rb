@@ -66,8 +66,8 @@ module Isuda
           end
       end
 
-      def dalli
-        Thread.current[:mc] ||= Dalli::Client.new('127.0.0.1:11211')
+      def redis
+        Thread.current[:redis] ||= Redis.new
       end
 
       def register(name, pw)
@@ -87,12 +87,12 @@ module Isuda
 
       def is_spam_content(content)
         hash = Digest::MD5.hexdigest(content)
-        body = dalli.get("isupam_#{hash}")
+        body = redis.get("isupam_#{hash}")
         if !body
           isupam_uri = URI(settings.isupam_origin)
           res = Net::HTTP.post_form(isupam_uri, 'content' => content)
           body = res.body
-          dalli.set("isupam_#{hash}", body)
+          redis.set("isupam_#{hash}", body)
         end
 
         validation = JSON.parse(body)
@@ -111,7 +111,7 @@ module Isuda
         pattern = keywords.map {|k| k[:escaped] }.join('|')
 
         hash = Digest::MD5.hexdigest(content + pattern)
-        html = dalli.get("html_#{hash}")
+        html = redis.get("html_#{hash}")
 
         if !html
           kw2hash = {}
@@ -129,7 +129,7 @@ module Isuda
           end
 
           html = escaped_content.gsub(/\n/, "<br />\n")
-          dalli.set("html_#{hash}", html)
+          redis.set("html_#{hash}", html)
         end
 
         html
@@ -140,21 +140,7 @@ module Isuda
       end
 
       def load_stars(keyword)
-        db.xquery(%| select user_name from star where keyword = ? |, keyword).map { |r| r[:user_name] }
-      end
-
-      def load_stars_by_entries(entries)
-        stars = {}
-
-        keywords = entries.map { |e| e[:keyword] }.uniq
-        keywords.each do |keyword|
-          stars[keyword] = []
-        end
-
-        db.xquery(%| select user_name, keyword from star where keyword IN (?) |, keywords).each do |star|
-          stars[star[:keyword]] << star[:user_name]
-        end
-        stars
+        redis.get("star_#{keyword}")
       end
 
       def redirect_found(path)
@@ -195,7 +181,7 @@ module Isuda
       stars = load_stars_by_entries(entries)
       entries.each do |entry|
         entry[:html] = htmlify(entry[:description])
-        entry[:stars] = stars[entry[:keyword]]
+        entry[:stars] = load_stars(entry[:keyword])
       end
 
       total_entries = db.xquery(%| SELECT count(*) AS total_entries FROM entry |).first[:total_entries].to_i
@@ -263,7 +249,7 @@ module Isuda
       keyword = params[:keyword] || ''
       halt(400) if keyword == ''
       description = params[:description]
-      halt(400) if is_spam_content(keyword) || is_spam_content(description)
+      halt(400) if is_spam_content(keyword + '\n' + description)
 
       bound = [@user_id, keyword, description] * 2
       db.xquery(%|
@@ -313,10 +299,8 @@ module Isuda
       db.xquery(%| select * from entry where keyword = ? |, keyword).first or halt(404)
 
       user_name = params[:user]
-      db.xquery(%|
-        INSERT INTO star (keyword, user_name, created_at)
-        VALUES (?, ?, NOW())
-      |, keyword, user_name)
+      exist = redis.get("star_#{keyword}")
+      redis.set("#{exist}<img src=\"/img/star.gif\" title=\"#{user_name}\" alt=\"#{user_name}\">")
 
       content_type :json
       JSON.generate(result: 'ok')
