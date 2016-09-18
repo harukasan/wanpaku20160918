@@ -9,6 +9,7 @@ require 'mysql2-cs-bind'
 require 'rack/utils'
 require 'sinatra/base'
 require 'tilt/erubis'
+require_relative 'trie'
 
 module Isuda
   class Web < ::Sinatra::Base
@@ -107,7 +108,7 @@ module Isuda
           trie_now = @trie.root
           char_now = content[ch]
           now_add_Length = 0
-          while true then
+          while true do
             if trie_now.endflg then
               last_match = content[ch..(ch+now_add_Length)]
             end
@@ -294,39 +295,6 @@ module Isuda
 
       content_type :json
       JSON.generate(result: 'ok')
-    end
-  end
-
-  class Trie
-    attr_reader :root
-
-    def initialize
-      @root = Node.new(nil)
-    end
-
-    def add(word)
-      node = @root
-      word.chars { |ch|
-        unless node.next[ch] then
-          node.next[ch] = Node.new
-        end
-        node = node.next[ch]
-      }
-      node.endflg = true
-    end
-  end
-
-  class Node
-    attr_accessor :next, :parent, :endflg
-    def initialize#(parent)
-      # @now = char # 現在の文字
-      @next = {}; # 次のノードへの参照
-      #@parent = parent # 親ノード(上まで辿って文字列を復元する)
-      @endflg = false;
-    end
-
-    def has_next?
-      @next != {}
     end
   end
 end
