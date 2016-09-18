@@ -113,12 +113,7 @@ module Isuda
       end
 
       def load_stars(keyword)
-        isutar_url = URI(settings.isutar_origin)
-        isutar_url.path = '/stars'
-        isutar_url.query = URI.encode_www_form(keyword: keyword)
-        body = Net::HTTP.get(isutar_url)
-        stars_res = JSON.parse(body)
-        stars_res['stars']
+        db.xquery(%| select * from star where keyword = ? |, keyword).to_a
       end
 
       def redirect_found(path)
@@ -250,6 +245,22 @@ module Isuda
       db.xquery(%| DELETE FROM entry WHERE keyword = ? |, keyword)
 
       redirect_found '/'
+    end
+
+    post '/stars' do
+      keyword = params[:keyword]
+
+      # GET /keywords/:keywordをたたいていたところ
+      db.xquery(%| select * from entry where keyword = ? |, keyword).first or halt(404)
+
+      user_name = params[:user]
+      db.xquery(%|
+        INSERT INTO star (keyword, user_name, created_at)
+        VALUES (?, ?, NOW())
+      |, keyword, user_name)
+
+      content_type :json
+      JSON.generate(result: 'ok')
     end
   end
 end
