@@ -32,13 +32,9 @@ module Isuda
 
     set(:set_name) do |value|
       condition {
-        user_id = session[:user_id]
-        if user_id
-          user = db.xquery(%| select name from user where id = ? |, user_id).first
-          @user_id = user_id
-          @user_name = user[:name]
-          halt(403) unless @user_name
-        end
+        @user_id ||= session[:user_id]
+        @user_name ||= db.xquery(%| select name from user where id = ? |, @user_id).first[:name]
+        halt(403) unless @user_name
       }
     end
 
