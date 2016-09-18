@@ -95,7 +95,7 @@ module Isuda
         kw2hash = {}
         hashed_content = content.gsub(/(#{pattern})/) {|m|
           matched_keyword = $1
-          "isuda_#{Digest::SHA1.hexdigest(matched_keyword)}".tap do |hash|
+          "$$#{matched_keyword)}$$".tap do |hash|
             kw2hash[matched_keyword] = hash
           end
         }
