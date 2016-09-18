@@ -10,6 +10,8 @@ require 'rack/utils'
 require 'sinatra/base'
 require 'tilt/erubis'
 
+require 'dalli'
+
 module Isuda
   class Web < ::Sinatra::Base
     enable :protection
@@ -64,6 +66,10 @@ module Isuda
           end
       end
 
+      def dalli
+        Thread.current[:mc] ||= Dalli::Client.new('127.0.0.1:11211')
+      end
+
       def register(name, pw)
         chars = [*'A'..'~']
         salt = 1.upto(20).map { chars.sample }.join('')
@@ -80,10 +86,17 @@ module Isuda
       end
 
       def is_spam_content(content)
-        isupam_uri = URI(settings.isupam_origin)
-        res = Net::HTTP.post_form(isupam_uri, 'content' => content)
-        validation = JSON.parse(res.body)
-        validation['valid']
+        hash = Digest::MD5.hexdigest(content)
+
+        body = dalli.get("isupam_#{hash}")
+        if !body
+          isupam_uri = URI(settings.isupam_origin)
+          res = Net::HTTP.post_form(isupam_uri, 'content' => content)
+          body = res.body
+          dalli.set("isupam_#{hash}", body)
+        end
+
+        validation = JSON.parse(body)
         ! validation['valid']
       end
 
