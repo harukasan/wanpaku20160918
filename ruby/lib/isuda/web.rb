@@ -157,7 +157,7 @@ module Isuda
       stars = load_stars_by_entries(entries)
       entries.each do |entry|
         entry[:html] = htmlify(entry[:description])
-        entry[:stars] = stars[entry[:keyword]] || []
+        entry[:stars] = stars[entry[:keyword]]
       end
 
       total_entries = db.xquery(%| SELECT count(*) AS total_entries FROM entry |).first[:total_entries].to_i
