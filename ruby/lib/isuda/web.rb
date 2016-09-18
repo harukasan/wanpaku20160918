@@ -123,9 +123,7 @@ module Isuda
 
     get '/initialize' do
       db.xquery(%| DELETE FROM entry WHERE id > 7101 |)
-      isutar_initialize_url = URI(settings.isutar_origin)
-      isutar_initialize_url.path = '/initialize'
-      Net::HTTP.get_response(isutar_initialize_url)
+      db.xquery('TRUNCATE star')
 
       content_type :json
       JSON.generate(result: 'ok')
