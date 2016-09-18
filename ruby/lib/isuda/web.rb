@@ -164,6 +164,17 @@ module Isuda
       JSON.generate(result: 'ok')
     end
 
+    get '/insert_escaped_column' do
+      db.xquery(%| SELECT name FROM keyword |).each do |keyword|
+        db.xquery(%|
+          UPDATE keyword SET escaped = ? WHERE name = ?
+        |, Regexp.escape(keyword[:name]), keyword[:name])
+      end
+
+      content_type :json
+      JSON.generate(result: 'ok')
+    end
+
     get '/', set_name: true do
       per_page = 10
       page = (params[:page] || 1).to_i
