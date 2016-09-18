@@ -113,7 +113,7 @@ module Isuda
       end
 
       def load_stars(keyword)
-        db.xquery(%| select * from star where keyword = ? |, keyword).to_a
+        db.xquery(%| select user_name from star where keyword = ? |, keyword).map { |r| r[:user_name] }
       end
 
       def redirect_found(path)
