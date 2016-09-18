@@ -10,6 +10,8 @@ gem 'unicorn'
 
 gem 'dalli'
 
+gem 'stackprof'
+
 group :development do
   gem 'foreman'
   gem 'sinatra-contrib', require: nil
