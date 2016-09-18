@@ -9,6 +9,7 @@ require 'mysql2-cs-bind'
 require 'rack/utils'
 require 'sinatra/base'
 require 'tilt/erubis'
+require_relative 'trie'
 
 require 'redis'
 
@@ -37,7 +38,7 @@ module Isuda
     set(:set_name) do |value|
       condition {
         @user_id ||= session[:user_id]
-        if @user_id 
+        if @user_id
           @user_name ||= session[:user_name]
           halt(403) unless @user_name
         end
@@ -65,6 +66,18 @@ module Isuda
             )
             mysql.query_options.update(symbolize_keys: true)
             mysql
+          end
+      end
+
+      def trie
+        Thread.current[:trie] ||=
+          begin
+            trie = Trie.new
+            keywords = db.xquery(%| select keyword from entry|)
+            keywords.each do |word|
+              trie.add(word[:keyword])
+            end
+            trie
           end
       end
 
@@ -112,33 +125,48 @@ module Isuda
       end
 
       def htmlify(content)
-        chars = bigram(content)
-        keywords = db.xquery(%| select `escaped` from keyword where prefix in (?) order by character_length(name) desc |, chars)
-        pattern = keywords.map {|k| k[:escaped] }.join('|')
 
-        hash = Digest::MD5.hexdigest(content + pattern)
-        html = dalli.get("html_#{hash}")
-
-        if !html
-          kw2hash = {}
-          hashed_content = content.gsub(/(#{pattern})/) {|m|
-            matched_keyword = $1
-            "$$#{matched_keyword}$$".tap do |hash|
-              kw2hash[matched_keyword] = hash
+        kw2hash = {}
+        ch = 0
+        while true do
+          if ch > content.length - 1
+            break
+          end
+          last_match = nil
+          trie_now = trie.root
+          char_now = content[ch]
+          now_length = 0
+          while true do
+            if trie_now.endflg then
+              last_match = content[ch, now_length]
             end
-          }
-          escaped_content = Rack::Utils.escape_html(hashed_content)
-          kw2hash.each do |(keyword, hash)|
-            keyword_url = url("/keyword/#{Rack::Utils.escape_path(keyword)}")
-            anchor = '<a href="%s">%s</a>' % [keyword_url, Rack::Utils.escape_html(keyword)]
-            escaped_content.gsub!(hash, anchor)
+            unless trie_now.next[char_now] then
+              break
+            else
+              trie_now = trie_now.next[char_now]
+              now_length += 1
+              char_now = content[ch+now_length]
+            end
           end
 
-          html = escaped_content.gsub(/\n/, "<br />\n")
-          dalli.set("html_#{hash}", html)
+          if last_match then
+            kw2hash[last_match] = "$$#{last_match}$$"
+            content.insert(ch, "$$")
+            content.insert(ch + last_match.length + 2, "$$")
+            ch += 4 + last_match.length
+            next
+          end
+
+          ch += 1
         end
 
-        html
+        escaped_content = Rack::Utils.escape_html(content)
+        kw2hash.each do |(keyword, hash)|
+          keyword_url = url("/keyword/#{Rack::Utils.escape_path(keyword)}")
+          anchor = '<a href="%s">%s</a>' % [keyword_url, Rack::Utils.escape_html(keyword)]
+          escaped_content.gsub!(hash, anchor)
+        end
+         escaped_content.gsub(/\n/, "<br />\n")
       end
 
       def uri_escape(str)
@@ -268,6 +296,8 @@ module Isuda
       db.xquery(%|
         INSERT IGNORE INTO `keyword` (`name`, `prefix`, `escaped`) VALUES (?, ?, ?)
       |, keyword, keyword[0, 2], Regexp.escape(keyword))
+
+      trie.add(keyword)
 
       redirect_found '/'
     end
