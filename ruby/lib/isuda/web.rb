@@ -89,7 +89,7 @@ module Isuda
 
       def htmlify(content)
         chars = content.split('').uniq
-        keywords = db.xquery(%| select name from keyword where prefix in (?) order by character_length(name) desc |, chars)
+        keywords = db.xquery(%| select name AS keyword from keyword where prefix in (?) order by character_length(name) desc |, chars)
         pattern = keywords.map {|k| Regexp.escape(k[:keyword]) }.join('|')
 
         kw2hash = {}
