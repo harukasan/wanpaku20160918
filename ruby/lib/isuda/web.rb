@@ -116,6 +116,21 @@ module Isuda
         db.xquery(%| select * from star where keyword = ? |, keyword).to_a
       end
 
+      def load_stars_by_entries(entries)
+        stars = {}
+
+        keywords = entries.map(&:keyword).uniq
+        keywords.each do |keyword|
+          stars[keyword] = []
+        end
+
+        load_stars(keywords).each do |star|
+          keyword = star[:keyword]
+          stars[keyword] << star
+        end
+        stars
+      end
+
       def redirect_found(path)
         redirect(path, 302)
       end
@@ -141,9 +156,11 @@ module Isuda
         LIMIT #{per_page}
         OFFSET #{per_page * (page - 1)}
       |)
+
+      stars = load_stars_by_entries(entries)
       entries.each do |entry|
         entry[:html] = htmlify(entry[:description])
-        entry[:stars] = load_stars(entry[:keyword])
+        entry[:stars] = stars[entry[:keyword]]
       end
 
       total_entries = db.xquery(%| SELECT count(*) AS total_entries FROM entry |).first[:total_entries].to_i
