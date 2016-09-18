@@ -107,8 +107,8 @@ module Isuda
 
       def htmlify(content)
         chars = bigram(content)
-        keywords = db.xquery(%| select name AS keyword from keyword where prefix in (?) order by character_length(name) desc |, chars)
-        pattern = keywords.map {|k| Regexp.escape(k[:keyword]) }.join('|')
+        keywords = db.xquery(%| select `escaped` from keyword where prefix in (?) order by character_length(name) desc |, chars)
+        pattern = keywords.map {|k| k[:escaped] }.join('|')
 
         hash = Digest::MD5.hexdigest(content + pattern)
         html = dalli.get("html_#{hash}")
@@ -165,6 +165,17 @@ module Isuda
     get '/initialize' do
       db.xquery(%| DELETE FROM entry WHERE id > 7101 |)
       db.xquery('TRUNCATE star')
+
+      content_type :json
+      JSON.generate(result: 'ok')
+    end
+
+    get '/insert_escaped_column' do
+      db.xquery('SELECT name FROM keyword').to_a.each do |keyword|
+        db.xquery(%|
+          UPDATE `keyword` SET `escaped` = ? WHERE `name` = ?
+        |, Regexp.escape(keyword[:name]), keyword[:name])
+      end
 
       content_type :json
       JSON.generate(result: 'ok')
@@ -262,7 +273,9 @@ module Isuda
         author_id = ?, keyword = ?, description = ?, updated_at = NOW()
       |, *bound)
 
-      db.xquery(%| INSERT IGNORE INTO keyword (name, prefix) VALUES (?, ?) |, keyword, keyword[0,2])
+      db.xquery(%|
+        INSERT IGNORE INTO `keyword` (`name`, `prefix`, `escaped`) VALUES (?, ?, ?)
+      |, keyword, keyword[0, 2], Regexp.escape(keyword))
 
       redirect_found '/'
     end
