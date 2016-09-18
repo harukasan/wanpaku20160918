@@ -106,7 +106,7 @@ module Isuda
           @trie = Trie.new
 
           keywords.each do |word|
-            @trie.add(word)
+            @trie.add(word[:keyword])
           end
         end
 
