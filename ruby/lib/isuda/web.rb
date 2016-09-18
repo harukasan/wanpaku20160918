@@ -100,15 +100,14 @@ module Isuda
       end
 
       def htmlify(content)
-        hash = Digest::MD5.hexdigest(content)
+        unless @pattern
+          keywords = db.xquery(%| select keyword from entry order by character_length(keyword) desc |)
+          @pattern = keywords.map {|k| Regexp.escape(k[:keyword]) }.join('|')
+        end
+        hash = Digest::MD5.hexdigest(content + @pattern)
         html = dalli.get("html_#{hash}")
 
         if !html
-          unless @pattern
-            keywords = db.xquery(%| select keyword from entry order by character_length(keyword) desc |)
-            @pattern = keywords.map {|k| Regexp.escape(k[:keyword]) }.join('|')
-          end
-
           kw2hash = {}
           hashed_content = content.gsub(/(#{@pattern})/) {|m|
             matched_keyword = $1
