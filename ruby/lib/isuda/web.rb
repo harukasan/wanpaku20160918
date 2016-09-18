@@ -113,9 +113,11 @@ module Isuda
 
       def prefixes
         result = redis.get('prefixes')
-        if !result
+        if result
+          result.split('$$')
+        else
           result = db.xquery('select distinct prefix from keyword').to_a
-          redis.set('prefixes', result)
+          redis.set('prefixes', result.join('$$'))
         end
         result
       end
@@ -278,7 +280,7 @@ module Isuda
         INSERT IGNORE INTO `keyword` (`name`, `prefix`, `escaped`) VALUES (?, ?, ?)
       |, keyword, keyword[0, 2], Regexp.escape(keyword))
 
-      redis.set('prefixes', prefixes | [keyword])
+      redis.set('prefixes', (prefixes | [keyword]).join('$$'))
 
       redirect_found '/'
     end
