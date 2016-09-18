@@ -87,7 +87,6 @@ module Isuda
 
       def is_spam_content(content)
         hash = Digest::MD5.hexdigest(content)
-
         body = dalli.get("isupam_#{hash}")
         if !body
           isupam_uri = URI(settings.isupam_origin)
@@ -105,21 +104,29 @@ module Isuda
           keywords = db.xquery(%| select keyword from entry order by character_length(keyword) desc |)
           @pattern = keywords.map {|k| Regexp.escape(k[:keyword]) }.join('|')
         end
+        hash = Digest::MD5.hexdigest(content + @pattern)
+        html = dalli.get("html_#{hash}")
 
-        kw2hash = {}
-        hashed_content = content.gsub(/(#{@pattern})/) {|m|
-          matched_keyword = $1
-          "$$#{matched_keyword}$$".tap do |hash|
-            kw2hash[matched_keyword] = hash
+        if !html
+          kw2hash = {}
+          hashed_content = content.gsub(/(#{@pattern})/) {|m|
+            matched_keyword = $1
+            "$$#{matched_keyword}$$".tap do |hash|
+              kw2hash[matched_keyword] = hash
+            end
+          }
+          escaped_content = Rack::Utils.escape_html(hashed_content)
+          kw2hash.each do |(keyword, hash)|
+            keyword_url = url("/keyword/#{Rack::Utils.escape_path(keyword)}")
+            anchor = '<a href="%s">%s</a>' % [keyword_url, Rack::Utils.escape_html(keyword)]
+            escaped_content.gsub!(hash, anchor)
           end
-        }
-        escaped_content = Rack::Utils.escape_html(hashed_content)
-        kw2hash.each do |(keyword, hash)|
-          keyword_url = url("/keyword/#{Rack::Utils.escape_path(keyword)}")
-          anchor = '<a href="%s">%s</a>' % [keyword_url, Rack::Utils.escape_html(keyword)]
-          escaped_content.gsub!(hash, anchor)
+          
+          html = escaped_content.gsub(/\n/, "<br />\n")
+          dalli.set("html_#{hash}", html)
         end
-        escaped_content.gsub(/\n/, "<br />\n")
+
+        html
       end
 
       def uri_escape(str)
