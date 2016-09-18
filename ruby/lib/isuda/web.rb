@@ -101,8 +101,8 @@ module Isuda
 
       def htmlify(content)
         chars = content.split('').uniq
-        keywords = db.xquery(%| select name AS keyword from keyword where prefix in (?) order by character_length(name) desc |, chars)
-        pattern = keywords.map {|k| Regexp.escape(k[:keyword]) }.join('|')
+        keywords = db.xquery(%| select escaped from keyword where prefix in (?) order by character_length(name) desc |, chars)
+        pattern = keywords.map {|k| k[:escaped] }.join('|')
 
         hash = Digest::MD5.hexdigest(content + pattern)
         html = dalli.get("html_#{hash}")
@@ -256,7 +256,9 @@ module Isuda
         author_id = ?, keyword = ?, description = ?, updated_at = NOW()
       |, *bound)
 
-      db.xquery(%| INSERT IGNORE INTO keyword (name, prefix) VALUES (?, ?) |, keyword, keyword[0])
+      db.xquery(%|
+        INSERT IGNORE INTO keyword (name, prefix, escaped) VALUES (?, ?, ?)
+      |, keyword, keyword[0], Regexp.escape(keyword))
 
       redirect_found '/'
     end
