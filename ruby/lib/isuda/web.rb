@@ -88,19 +88,50 @@ module Isuda
       end
 
       def htmlify(content)
-        unless @pattern
+        unless @trie
           keywords = db.xquery(%| select keyword from entry order by character_length(keyword) desc |)
-          @pattern = keywords.map {|k| Regexp.escape(k[:keyword]) }.join('|')
+          @trie = Trie.new
+
+          keywords.each do |word|
+            @trie.add(word)
+          end
         end
 
         kw2hash = {}
-        hashed_content = content.gsub(/(#{@pattern})/) {|m|
-          matched_keyword = $1
-          "$$#{matched_keyword}$$".tap do |hash|
-            kw2hash[matched_keyword] = hash
+        ch = 0
+        while true do
+          if ch > content.length - 1
+            break
           end
-        }
-        escaped_content = Rack::Utils.escape_html(hashed_content)
+          last_match = nil
+          trie_now = @trie.root
+          char_now = content[ch]
+          now_add_Length = 0
+          while true then
+            if trie_now.endflg then
+              last_match = content[ch..(ch+now_add_Length)]
+            end
+            unless trie_now.next[char_now] then
+              break
+            else
+              trie_now = trie_now.next[char_now]
+              now_add_Length += 1
+              char_now = content[ch+now_add_Length]
+            end
+          end
+
+          if last_match then
+            kw2hash[last_match] = "$$#{last_match}$$"
+            content.insert(ch, "$$")
+            content.insert(ch + last_match.length - 1 + 2, "$$")
+            ch += 4
+            next
+          end
+
+          ch += 1
+        end
+
+        escaped_content = Rack::Utils.escape_html(content)
         kw2hash.each do |(keyword, hash)|
           keyword_url = url("/keyword/#{Rack::Utils.escape_path(keyword)}")
           anchor = '<a href="%s">%s</a>' % [keyword_url, Rack::Utils.escape_html(keyword)]
@@ -277,7 +308,7 @@ module Isuda
       node = @root
       word.chars { |ch|
         unless node.next[ch] then
-          node.next[ch] = Node.new(node)
+          node.next[ch] = Node.new
         end
         node = node.next[ch]
       }
@@ -287,10 +318,10 @@ module Isuda
 
   class Node
     attr_accessor :next, :parent, :endflg
-    def initialize(parent)
+    def initialize#(parent)
       # @now = char # 現在の文字
       @next = {}; # 次のノードへの参照
-      @parent = parent # 親ノード(上まで辿って文字列を復元する)
+      #@parent = parent # 親ノード(上まで辿って文字列を復元する)
       @endflg = false;
     end
 
