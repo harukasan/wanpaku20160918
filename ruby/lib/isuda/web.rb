@@ -10,6 +10,8 @@ require 'rack/utils'
 require 'sinatra/base'
 require 'tilt/erubis'
 
+require 'redis'
+
 require 'dalli'
 
 module Isuda
@@ -66,6 +68,10 @@ module Isuda
           end
       end
 
+      def dalli
+        Thread.current[:mc] ||= Dalli::Client.new('127.0.0.1:11211')
+      end
+
       def redis
         Thread.current[:redis] ||= Redis.new
       end
@@ -87,12 +93,12 @@ module Isuda
 
       def is_spam_content(content)
         hash = Digest::MD5.hexdigest(content)
-        body = redis.get("isupam_#{hash}")
+        body = dalli.get("isupam_#{hash}")
         if !body
           isupam_uri = URI(settings.isupam_origin)
           res = Net::HTTP.post_form(isupam_uri, 'content' => content)
           body = res.body
-          redis.set("isupam_#{hash}", body)
+          dalli.set("isupam_#{hash}", body)
         end
 
         validation = JSON.parse(body)
@@ -111,7 +117,7 @@ module Isuda
         pattern = keywords.map {|k| k[:escaped] }.join('|')
 
         hash = Digest::MD5.hexdigest(content + pattern)
-        html = redis.get("html_#{hash}")
+        html = dalli.get("html_#{hash}")
 
         if !html
           kw2hash = {}
@@ -129,7 +135,7 @@ module Isuda
           end
 
           html = escaped_content.gsub(/\n/, "<br />\n")
-          redis.set("html_#{hash}", html)
+          dalli.set("html_#{hash}", html)
         end
 
         html
@@ -151,6 +157,7 @@ module Isuda
     get '/initialize' do
       db.xquery(%| DELETE FROM entry WHERE id > 7101 |)
       db.xquery('TRUNCATE star')
+      redis.flushall()
 
       content_type :json
       JSON.generate(result: 'ok')
@@ -299,7 +306,7 @@ module Isuda
 
       user_name = params[:user]
       exist = redis.get("star_#{keyword}")
-      redis.set("#{exist}<img src=\"/img/star.gif\" title=\"#{user_name}\" alt=\"#{user_name}\">")
+      redis.set("star_#{keyword}", "#{exist}<img src=\"/img/star.gif\" title=\"#{user_name}\" alt=\"#{user_name}\">")
 
       content_type :json
       JSON.generate(result: 'ok')
