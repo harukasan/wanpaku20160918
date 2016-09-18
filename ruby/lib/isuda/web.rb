@@ -171,7 +171,7 @@ module Isuda
 
       user_id = register(name, pw)
       session[:user_id] = user_id
-      session[:user_name] = params[:name]
+      session[:user_name] = name
 
       redirect_found '/'
     end
