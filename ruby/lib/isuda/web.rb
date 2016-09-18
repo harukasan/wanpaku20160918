@@ -107,7 +107,7 @@ module Isuda
 
       def htmlify(content)
         chars = bigram(content)
-        keywords = db.xquery(%| select escaped from keyword where prefix in (?) order by character_length(name) desc |, chars)
+        keywords = db.xquery(%| select `escaped` from keyword where prefix in (?) order by character_length(name) desc |, chars)
         pattern = keywords.map {|k| k[:escaped] }.join('|')
 
         hash = Digest::MD5.hexdigest(content + pattern)
@@ -171,9 +171,9 @@ module Isuda
     end
 
     get '/insert_escaped_column' do
-      db.xquery(%| SELECT name FROM keyword |).each do |keyword|
+      db.xquery('SELECT name FROM keyword').to_a.each do |keyword|
         db.xquery(%|
-          UPDATE keyword SET escaped = ? WHERE name = ?
+          UPDATE `keyword` SET `escaped` = ? WHERE `name` = ?
         |, Regexp.escape(keyword[:name]), keyword[:name])
       end
 
