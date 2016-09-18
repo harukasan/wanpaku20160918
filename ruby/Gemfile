@@ -7,6 +7,7 @@ gem 'mysql2'
 gem 'mysql2-cs-bind'
 gem 'sinatra'
 gem 'unicorn'
+gem 'fast_trie'
 
 group :development do
   gem 'foreman'
