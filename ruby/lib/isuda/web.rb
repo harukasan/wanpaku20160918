@@ -86,8 +86,11 @@ module Isuda
       end
 
       def htmlify(content)
-        keywords = db.xquery(%| select keyword from entry order by character_length(keyword) desc |)
-        pattern = keywords.map {|k| Regexp.escape(k[:keyword]) }.join('|')
+        unless @pattern
+          keywords = db.xquery(%| select keyword from entry order by character_length(keyword) desc |)
+          @pattern = keywords.map {|k| Regexp.escape(k[:keyword]) }.join('|')
+        end
+
         kw2hash = {}
         hashed_content = content.gsub(/(#{pattern})/) {|m|
           matched_keyword = $1
@@ -214,6 +217,11 @@ module Isuda
         ON DUPLICATE KEY UPDATE
         author_id = ?, keyword = ?, description = ?, updated_at = NOW()
       |, *bound)
+
+      unless @pattern
+        # MEMO: 長い順を保持し続ける必要があったらこれだとNG
+        @pattern  += '|' + Regexp.escape(keyword)
+      end
 
       redirect_found '/'
     end
