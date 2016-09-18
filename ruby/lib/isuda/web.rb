@@ -124,7 +124,7 @@ module Isuda
           stars[keyword] = []
         end
 
-	db.xquery(%| select user_name, keyword from star where keyword IN (?) |, keywords).each do |star|
+        db.xquery(%| select user_name, keyword from star where keyword IN (?) |, keywords).each do |star|
           stars[star[:keyword]] << star[:user_name]
         end
         stars
