@@ -99,8 +99,14 @@ module Isuda
         ! validation['valid']
       end
 
+      def bigram(content)
+        characters = content.split(//u)
+        return [content] if characters.size <= 2
+        return characters.each_cons(2).collect(&:join).uniq
+      end
+
       def htmlify(content)
-        chars = content.split('').uniq
+        chars = bigram(content)
         keywords = db.xquery(%| select escaped from keyword where prefix in (?) order by character_length(name) desc |, chars)
         pattern = keywords.map {|k| k[:escaped] }.join('|')
 
@@ -269,7 +275,7 @@ module Isuda
 
       db.xquery(%|
         INSERT IGNORE INTO keyword (name, prefix, escaped) VALUES (?, ?, ?)
-      |, keyword, keyword[0], Regexp.escape(keyword))
+      |, keyword, keyword[0, 2], Regexp.escape(keyword))
 
       redirect_found '/'
     end
