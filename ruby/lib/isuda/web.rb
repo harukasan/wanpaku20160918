@@ -128,7 +128,7 @@ module Isuda
               break
             else
               trie_now = trie_now.next[char_now]
-              now_add_Length += 1
+              now_length += 1
               char_now = content[ch+now_length]
             end
           end
