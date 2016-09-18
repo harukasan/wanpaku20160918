@@ -96,7 +96,7 @@ module Isuda
           dalli.set("isupam_#{hash}", body)
         end
 
-        validation = JSON.parse(res.body)
+        validation = JSON.parse(body)
         ! validation['valid']
       end
 
