@@ -119,24 +119,24 @@ module Isuda
           last_match = nil
           trie_now = @trie.root
           char_now = content[ch]
-          now_add_Length = 0
+          now_length = 0
           while true do
             if trie_now.endflg then
-              last_match = content[ch..(ch+now_add_Length)]
+              last_match = content[ch, now_length]
             end
             unless trie_now.next[char_now] then
               break
             else
               trie_now = trie_now.next[char_now]
               now_add_Length += 1
-              char_now = content[ch+now_add_Length]
+              char_now = content[ch+now_length]
             end
           end
 
           if last_match then
             kw2hash[last_match] = "$$#{last_match}$$"
             content.insert(ch, "$$")
-            content.insert(ch + last_match.length - 1 + 2, "$$")
+            content.insert(ch + last_match.length + 2, "$$")
             ch += 4
             next
           end
