@@ -90,12 +90,12 @@ module Isuda
       end
 
       def htmlify(content)
-        keywords = db.xquery(%| select * from entry order by character_length(keyword) desc |)
+        keywords = db.xquery(%| select keyword from entry order by character_length(keyword) desc |)
         pattern = keywords.map {|k| Regexp.escape(k[:keyword]) }.join('|')
         kw2hash = {}
         hashed_content = content.gsub(/(#{pattern})/) {|m|
           matched_keyword = $1
-          "isuda_#{Digest::SHA1.hexdigest(matched_keyword)}".tap do |hash|
+          "$$#{matched_keyword}$$".tap do |hash|
             kw2hash[matched_keyword] = hash
           end
         }
@@ -113,7 +113,7 @@ module Isuda
       end
 
       def load_stars(keyword)
-        db.xquery(%| select * from star where keyword = ? |, keyword).to_a
+        db.xquery(%| select user_name from star where keyword = ? |, keyword).map { |r| r[:user_name] }
       end
 
       def load_stars_by_entries(entries)
@@ -137,9 +137,7 @@ module Isuda
 
     get '/initialize' do
       db.xquery(%| DELETE FROM entry WHERE id > 7101 |)
-      isutar_initialize_url = URI(settings.isutar_origin)
-      isutar_initialize_url.path = '/initialize'
-      Net::HTTP.get_response(isutar_initialize_url)
+      db.xquery('TRUNCATE star')
 
       content_type :json
       JSON.generate(result: 'ok')
