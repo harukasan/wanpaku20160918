@@ -218,11 +218,6 @@ module Isuda
         author_id = ?, keyword = ?, description = ?, updated_at = NOW()
       |, *bound)
 
-      unless @pattern
-        # MEMO: 長い順を保持し続ける必要があったらこれだとNG
-        @pattern  += '|' + Regexp.escape(keyword)
-      end
-
       redirect_found '/'
     end
 
