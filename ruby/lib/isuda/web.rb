@@ -235,6 +235,8 @@ module Isuda
         author_id = ?, keyword = ?, description = ?, updated_at = NOW()
       |, *bound)
 
+      db.xquery(%| INSERT IGNORE INTO keyword (name, prefix) VALUES (?, ?) |, [keyword, keyword.first])
+
       redirect_found '/'
     end
 
