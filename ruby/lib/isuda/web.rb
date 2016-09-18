@@ -102,13 +102,17 @@ module Isuda
       def htmlify(content)
         chars = content.split('').uniq
         keywords = db.xquery(%| select name AS keyword from keyword where prefix in (?) order by character_length(name) desc |, chars)
-        pattern = keywords.map {|k| Regexp.escape(k[:keyword]) }.join('|')
+        pattern = keywords.join('\t')
 
         hash = Digest::MD5.hexdigest(content + pattern)
         html = dalli.get("html_#{hash}")
 
         if !html
           kw2hash = {}
+
+          pattern = Regexp.escape(pattern)
+          pattern = pattern.tr('\t', '|')
+
           hashed_content = content.gsub(/(#{pattern})/) {|m|
             matched_keyword = $1
             "$$#{matched_keyword}$$".tap do |hash|
