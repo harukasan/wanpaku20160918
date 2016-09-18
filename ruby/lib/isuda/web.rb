@@ -101,7 +101,8 @@ module Isuda
 
       def htmlify(content)
         chars = content.split('').uniq
-        keywords = db.xquery(%| select name AS keyword from keyword where prefix in (?) order by character_length(name) desc |, chars)
+        keywords = db.xquery(%| select name AS keyword from keyword where prefix in (?) |, chars).to_a
+        keywords = keywords.sort_by { |k| k.size }.reverse
         pattern = keywords.map {|k| Regexp.escape(k[:keyword]) }.join('|')
 
         hash = Digest::MD5.hexdigest(content + pattern)
