@@ -111,8 +111,17 @@ module Isuda
         return characters.each_cons(2).collect(&:join).uniq
       end
 
+      def prefixes
+        result = redis.get('prefixes')
+        if !result
+          result = db.xquery('select distinct prefix from keyword').to_a
+          redis.set('prefixes', result)
+        end
+        result
+      end
+
       def htmlify(content)
-        chars = bigram(content)
+        chars = bigram(content) & prefixes
         keywords = db.xquery(%| select `escaped` from keyword where prefix in (?) order by character_length(name) desc |, chars)
         pattern = keywords.map {|k| k[:escaped] }.join('|')
 
@@ -268,6 +277,8 @@ module Isuda
       db.xquery(%|
         INSERT IGNORE INTO `keyword` (`name`, `prefix`, `escaped`) VALUES (?, ?, ?)
       |, keyword, keyword[0, 2], Regexp.escape(keyword))
+
+      redis.set('prefixes', prefixes | [keyword])
 
       redirect_found '/'
     end
