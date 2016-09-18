@@ -178,7 +178,6 @@ module Isuda
         OFFSET #{per_page * (page - 1)}
       |)
 
-      stars = load_stars_by_entries(entries)
       entries.each do |entry|
         entry[:html] = htmlify(entry[:description])
         entry[:stars] = load_stars(entry[:keyword])
