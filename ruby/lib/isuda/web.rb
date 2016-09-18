@@ -100,16 +100,16 @@ module Isuda
       end
 
       def htmlify(content)
-        unless @pattern
-          keywords = db.xquery(%| select keyword from entry order by character_length(keyword) desc |)
-          @pattern = keywords.map {|k| Regexp.escape(k[:keyword]) }.join('|')
-        end
-        hash = Digest::MD5.hexdigest(content + @pattern)
+        chars = content.split('').uniq
+        keywords = db.xquery(%| select name AS keyword from keyword where prefix in (?) order by character_length(name) desc |, chars)
+        pattern = keywords.map {|k| Regexp.escape(k[:keyword]) }.join('|')
+
+        hash = Digest::MD5.hexdigest(content + pattern)
         html = dalli.get("html_#{hash}")
 
         if !html
           kw2hash = {}
-          hashed_content = content.gsub(/(#{@pattern})/) {|m|
+          hashed_content = content.gsub(/(#{pattern})/) {|m|
             matched_keyword = $1
             "$$#{matched_keyword}$$".tap do |hash|
               kw2hash[matched_keyword] = hash
@@ -121,7 +121,7 @@ module Isuda
             anchor = '<a href="%s">%s</a>' % [keyword_url, Rack::Utils.escape_html(keyword)]
             escaped_content.gsub!(hash, anchor)
           end
-          
+
           html = escaped_content.gsub(/\n/, "<br />\n")
           dalli.set("html_#{hash}", html)
         end
@@ -255,6 +255,8 @@ module Isuda
         ON DUPLICATE KEY UPDATE
         author_id = ?, keyword = ?, description = ?, updated_at = NOW()
       |, *bound)
+
+      db.xquery(%| INSERT IGNORE INTO keyword (name, prefix) VALUES (?, ?) |, keyword, keyword[0])
 
       redirect_found '/'
     end
