@@ -213,7 +213,7 @@ module Isuda
       keyword = params[:keyword] || ''
       halt(400) if keyword == ''
       description = params[:description]
-      halt(400) if is_spam_content(description) || is_spam_content(keyword)
+      halt(400) if is_spam_content(keyword) || is_spam_content(description)
 
       bound = [@user_id, keyword, description] * 2
       db.xquery(%|
