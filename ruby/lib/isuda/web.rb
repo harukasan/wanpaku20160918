@@ -33,8 +33,10 @@ module Isuda
     set(:set_name) do |value|
       condition {
         @user_id ||= session[:user_id]
-        @user_name ||= session[:user_name]
-        halt(403) unless @user_name
+        if @user_id 
+          @user_name ||= session[:user_name]
+          halt(403) unless @user_name
+        end
       }
     end
 
