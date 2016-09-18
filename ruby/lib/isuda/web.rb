@@ -137,7 +137,7 @@ module Isuda
             kw2hash[last_match] = "$$#{last_match}$$"
             content.insert(ch, "$$")
             content.insert(ch + last_match.length + 2, "$$")
-            ch += 4
+            ch += 4 + last_match.length
             next
           end
 
