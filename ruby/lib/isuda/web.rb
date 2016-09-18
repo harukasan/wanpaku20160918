@@ -116,7 +116,7 @@ module Isuda
         if result
           result = result.split('$$')
         else
-          result = db.xquery('select distinct prefix from keyword').to_a
+          result = db.xquery('select distinct prefix from keyword').map { |a| a[:prefix] }
           redis.set('prefixes', result.join('$$'))
         end
         result
@@ -124,7 +124,11 @@ module Isuda
 
       def htmlify(content)
         chars = bigram(content) & prefixes
-        keywords = db.xquery(%| select `escaped` from keyword where prefix in (?) order by character_length(name) desc |, chars)
+	if chars.size > 0
+	        keywords = db.xquery(%| select `escaped` from keyword where prefix in (?) order by character_length(name) desc |, chars)
+	else
+		keywords = []
+	end
         pattern = keywords.map {|k| k[:escaped] }.join('|')
 
         hash = Digest::MD5.hexdigest(content + pattern)
