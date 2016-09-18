@@ -105,11 +105,7 @@ module Isuda
           @pattern = keywords.map {|k| Regexp.escape(k[:keyword]) }.join('|')
         end
         hash = Digest::MD5.hexdigest(content + @pattern)
-
-        cache = db.xquery(%| SELECT html FROM html_cache WHERE hash = ? |, hash).first
-        if cache
-          html = cache[:html]
-        end
+        html = dalli.get("html_#{hash}")
 
         if !html
           kw2hash = {}
