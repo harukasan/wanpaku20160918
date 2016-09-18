@@ -170,6 +170,9 @@ module Isuda
         |, Regexp.escape(keyword[:name]), keyword[:name])
       end
 
+      total_entries = db.xquery(%| SELECT count(*) AS total_entries FROM entry |).first[:total_entries].to_i
+      dalli.set("total_entries", total_entries)
+
       content_type :json
       JSON.generate(result: 'ok')
     end
@@ -190,7 +193,7 @@ module Isuda
         entry[:stars] = load_stars(entry[:keyword])
       end
 
-      total_entries = db.xquery(%| SELECT count(*) AS total_entries FROM entry |).first[:total_entries].to_i
+      total_entries = dalli.get("total_entries").to_i
 
       last_page = (total_entries.to_f / per_page.to_f).ceil
       from = [1, page - 5].max
@@ -258,6 +261,7 @@ module Isuda
       halt(400) if is_spam_content(keyword + '\n' + description)
 
       bound = [@user_id, keyword, description] * 2
+      db.query("begin");
       db.xquery(%|
         INSERT INTO entry (author_id, keyword, description, created_at, updated_at)
         VALUES (?, ?, ?, NOW(), NOW())
@@ -268,6 +272,8 @@ module Isuda
       db.xquery(%|
         INSERT IGNORE INTO `keyword` (`name`, `prefix`, `escaped`) VALUES (?, ?, ?)
       |, keyword, keyword[0, 2], Regexp.escape(keyword))
+      dalli.incr("total_entries")
+      db.query("commit")
 
       redirect_found '/'
     end
