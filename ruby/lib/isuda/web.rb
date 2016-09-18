@@ -10,6 +10,8 @@ require 'rack/utils'
 require 'sinatra/base'
 require 'tilt/erubis'
 
+require 'redis'
+
 require 'dalli'
 
 module Isuda
@@ -68,6 +70,10 @@ module Isuda
 
       def dalli
         Thread.current[:mc] ||= Dalli::Client.new('127.0.0.1:11211')
+      end
+
+      def redis
+        Thread.current[:redis] ||= Redis.new
       end
 
       def register(name, pw)
@@ -140,21 +146,7 @@ module Isuda
       end
 
       def load_stars(keyword)
-        db.xquery(%| select user_name from star where keyword = ? |, keyword).map { |r| r[:user_name] }
-      end
-
-      def load_stars_by_entries(entries)
-        stars = {}
-
-        keywords = entries.map { |e| e[:keyword] }.uniq
-        keywords.each do |keyword|
-          stars[keyword] = []
-        end
-
-        db.xquery(%| select user_name, keyword from star where keyword IN (?) |, keywords).each do |star|
-          stars[star[:keyword]] << star[:user_name]
-        end
-        stars
+        redis.get("star_#{keyword}")
       end
 
       def redirect_found(path)
@@ -165,6 +157,7 @@ module Isuda
     get '/initialize' do
       db.xquery(%| DELETE FROM entry WHERE id > 7101 |)
       db.xquery('TRUNCATE star')
+      redis.flushall()
 
       content_type :json
       JSON.generate(result: 'ok')
@@ -192,10 +185,9 @@ module Isuda
         OFFSET #{per_page * (page - 1)}
       |)
 
-      stars = load_stars_by_entries(entries)
       entries.each do |entry|
         entry[:html] = htmlify(entry[:description])
-        entry[:stars] = stars[entry[:keyword]]
+        entry[:stars] = load_stars(entry[:keyword])
       end
 
       total_entries = db.xquery(%| SELECT count(*) AS total_entries FROM entry |).first[:total_entries].to_i
@@ -263,7 +255,7 @@ module Isuda
       keyword = params[:keyword] || ''
       halt(400) if keyword == ''
       description = params[:description]
-      halt(400) if is_spam_content(keyword) || is_spam_content(description)
+      halt(400) if is_spam_content(keyword + '\n' + description)
 
       bound = [@user_id, keyword, description] * 2
       db.xquery(%|
@@ -313,10 +305,8 @@ module Isuda
       db.xquery(%| select * from entry where keyword = ? |, keyword).first or halt(404)
 
       user_name = params[:user]
-      db.xquery(%|
-        INSERT INTO star (keyword, user_name, created_at)
-        VALUES (?, ?, NOW())
-      |, keyword, user_name)
+      exist = redis.get("star_#{keyword}")
+      redis.set("star_#{keyword}", "#{exist}<img src=\"/img/star.gif\" title=\"#{user_name}\" alt=\"#{user_name}\">")
 
       content_type :json
       JSON.generate(result: 'ok')

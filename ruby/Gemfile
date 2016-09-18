@@ -9,6 +9,7 @@ gem 'sinatra'
 gem 'unicorn'
 
 gem 'dalli'
+gem 'redis'
 
 group :development do
   gem 'foreman'
