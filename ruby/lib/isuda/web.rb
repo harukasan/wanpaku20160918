@@ -159,6 +159,9 @@ module Isuda
       db.xquery('TRUNCATE star')
       redis.flushall()
 
+      total_entries = db.xquery(%| SELECT count(*) AS total_entries FROM entry |).first[:total_entries].to_i
+      dalli.set("total_entries", total_entries)
+
       content_type :json
       JSON.generate(result: 'ok')
     end
@@ -190,7 +193,7 @@ module Isuda
         entry[:stars] = load_stars(entry[:keyword])
       end
 
-      total_entries = db.xquery(%| SELECT count(*) AS total_entries FROM entry |).first[:total_entries].to_i
+      total_entries = dalli.get("total_entries").to_i
 
       last_page = (total_entries.to_f / per_page.to_f).ceil
       from = [1, page - 5].max
@@ -268,6 +271,9 @@ module Isuda
       db.xquery(%|
         INSERT IGNORE INTO `keyword` (`name`, `prefix`, `escaped`) VALUES (?, ?, ?)
       |, keyword, keyword[0, 2], Regexp.escape(keyword))
+
+      total_entries = db.xquery(%| SELECT count(*) AS total_entries FROM entry |).first[:total_entries].to_i
+      dalli.set("total_entries", total_entries)
 
       redirect_found '/'
     end
